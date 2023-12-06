@@ -1,0 +1,130 @@
+#!/bin/bash
+
+scriptname=$(realpath "$0")
+
+#function editscript(){ if [ "$1" = "edit" ] || [ "$1" = "nano" ]; then (/usr/bin/nano "$scriptname"); exit; fi ; }
+function editscript(){
+  local script path; script="${scriptname##*/}"; path="${scriptname%/*}"; swp="$path/.$script.swp"
+  if [ "$1" = "edit" ] || [ "$1" = "nano" ]; then
+     if [[ ! -e "$swp" ]]; then printf "\n\n%s\n\n" "$swp"; (/usr/bin/nano "$scriptname"); exit
+     else printf "\n%s is already being edited.\n%s exists; try fg or look in another window.\n" "$scriptname" "$swp"; exit; fi;
+  fi; }
+
+function pause(){ read -p "$*" ; }
+
+editscript "$1"
+
+SUDO=''
+if (( "$EUID" != 0 )) 2>/dev/null; then
+    SUDO='sudo'
+else echo "RUN AS ROOT"
+fi
+
+"$SUDO" apt-get -y install \
+  libunistring-dev \
+  autoconf \
+  automake \
+  build-essential \
+  cmake \
+  git-core \
+  libass-dev \
+  libfreetype6-dev \
+  libgnutls28-dev \
+  libmp3lame-dev \
+  libsdl2-dev \
+  libtool \
+  libva-dev \
+  libvdpau-dev \
+  libvorbis-dev \
+  libxcb1-dev \
+  libxcb-shm0-dev \
+  libxcb-xfixes0-dev \
+  meson \
+  ninja-build \
+  pkg-config \
+  texinfo \
+  wget \
+  yasm \
+  zlib1g-dev
+
+mkdir -p "$CACHE/ffmpeg_sources" "$CACHE/bin" "$CACHE/ffmpeg_build"
+
+pause "sudo apt install nasm"
+"$SUDO" apt install nasm
+
+pause "sudo apt install libx264-dev"
+"$SUDO" apt install libx264-dev
+
+pause "sudo apt-get install libx265-dev libnuma-dev"
+"$SUDO" apt install libx265-dev libnuma-dev
+
+pause "sudo apt-get install libvpx-dev"
+"$SUDO" apt install libvpx-dev
+
+pasue -p "sudo apt-get install libfdk-aac-dev"
+"$SUDO" apt install libfdk-aac-dev
+
+pause -p "sudo apt-get install libopus-dev"
+"$SUDO" apt install libopus-dev
+
+pause -p "sudo apt install libaom-dev"
+"$SUDO" apt install libaom-dev
+
+pause -p "sudo apt install libsvtav1-dev"
+"$SUDO" apt install libsvtav1-dev libsvtav1enc-dev libsvtav1dec-dev
+
+#This ultimately wasn't necessary when I installed on Sat Dec  2 12:30:49 PM EST 2023
+#cd "$CACHE/ffmpeg_sources" && \
+#git -C SVT-AV1 pull 2> /dev/null || git clone https://gitlab.com/AOMediaCodec/SVT-AV1.git && \
+#mkdir -p SVT-AV1/build && \
+#cd SVT-AV1/build && \
+#PATH="$CACHE/bin:$PATH" cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX="$CACHE/ffmpeg_build" -DCMAKE_BUILD_TYPE=Release -DBUILD_DEC=OFF -DBUILD_SHARED_LIBS=OFF .. && \
+#PATH="$CACHE/bin:$PATH" make -j4 && \
+#make install
+
+pause -p "sudo apt-get install libdav1d-dev"
+"$SUDO" apt install libdav1d-dev
+
+pause -p "install libvmaf"
+cd "$CACHE"/ffmpeg_sources && \
+wget -c https://github.com/Netflix/vmaf/archive/v2.3.1.tar.gz && \
+tar xvf v2.3.1.tar.gz && \
+mkdir -p vmaf-2.3.1/libvmaf/build bin &&\
+cd vmaf-2.3.1/libvmaf/build && \
+meson setup -Denable_tests=false -Denable_docs=false --buildtype=release --default-library=static .. --prefix "$CACHE/ffmpeg_build" --bindir="$CACHE/ffmpeg_build/bin" --libdir="$CACHE/ffmpeg_build/lib" && \
+ninja && \
+ninja install
+mv "$CACHE/ffmpeg_build/bin/"* "$CACHE/bin"
+
+cd "$CACHE/ffmpeg_sources" && \
+wget -c -O ffmpeg-snapshot.tar.bz2 https://ffmpeg.org/releases/ffmpeg-snapshot.tar.bz2 && \
+tar xjvf ffmpeg-snapshot.tar.bz2 && \
+cd ffmpeg && \
+PATH="$CACHE/bin:$PATH" PKG_CONFIG_PATH="$CACHE/ffmpeg_build/lib/pkgconfig" ./configure \
+  --bindir="/usr/local/bin" `#set bindir for your system; $HOME/bin was default` \
+  --prefix="$CACHE/ffmpeg_build" \
+  --pkg-config-flags="--static" \
+  --extra-cflags="-I$CACHE/ffmpeg_build/include" \
+  --extra-ldflags="-L$CACHE/ffmpeg_build/lib" \
+  --extra-libs="-lpthread -lm" \
+  --ld="g++" \
+  --enable-gpl \
+  --enable-gnutls \
+  --enable-libaom \
+  --enable-libass \
+  --enable-libfdk-aac \
+  --enable-libfreetype \
+  --enable-libmp3lame \
+  --enable-libopus \
+  --enable-libsvtav1 \
+  --enable-libdav1d \
+  --enable-libvorbis \
+  --enable-libvpx \
+  --enable-libx264 \
+  --enable-libx265 \
+  --enable-nonfree && \
+#PATH="$CACHE/bin:$PATH" make -j4 && \
+sudo make install && \
+hash -r
+
+
