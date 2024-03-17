@@ -158,7 +158,8 @@ PATH="$CACHE/bin:$PATH" PKG_CONFIG_PATH="$CACHE/ffmpeg_build/lib/pkgconfig" ./co
   --enable-libvpx \
   --enable-libx264 \
   --enable-libx265 \
-  --enable-nonfree
+  --enable-nonfree \
+  --enable-libpulse
 fi
 
 if prompt "build ffmpeg (make -j4)"; then
