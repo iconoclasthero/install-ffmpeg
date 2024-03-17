@@ -1,4 +1,5 @@
 #!/bin/bash
+_CACHE="/dev/shm/cache"
 
 scriptname=$(realpath "$0")
 
@@ -12,7 +13,20 @@ function editscript(){
 
 function pause(){ read -p "$*" ; }
 
+prompt(){
+read -p "$1 " choice
+case "$choice" in
+  y|Y ) return 0;;
+  * ) return 1;;
+#  n|N ) return 1;;
+#  * ) echo "invalid";;
+esac
+}
+
 editscript "$1"
+
+[[ -z "$CACHE" ]] && CACHE="$_CACHE"
+[[ ! -d "$CACHE" ]] && mkdir -p "$CACHE" && chown "$user" "$CACHE"
 
 SUDO=''
 if (( "$EUID" != 0 )) 2>/dev/null; then
@@ -20,7 +34,10 @@ if (( "$EUID" != 0 )) 2>/dev/null; then
 else echo "RUN AS ROOT"
 fi
 
-"$SUDO" apt-get -y install \
+if prompt "install dependencies?"; then
+
+if prompt "install base dependencies via apt"; then
+"$SUDO" apt -y install \
   libunistring-dev \
   autoconf \
   automake \
@@ -46,32 +63,41 @@ fi
   wget \
   yasm \
   zlib1g-dev
+fi
 
 mkdir -p "$CACHE/ffmpeg_sources" "$CACHE/bin" "$CACHE/ffmpeg_build"
 
-pause "sudo apt install nasm"
+if prompt "sudo apt install nasm"; then
 "$SUDO" apt install nasm
+fi
 
-pause "sudo apt install libx264-dev"
+if prompt "sudo apt install libx264-dev"; then
 "$SUDO" apt install libx264-dev
+fi
 
-pause "sudo apt-get install libx265-dev libnuma-dev"
+if prompt "sudo apt install libx265-dev libnuma-dev"; then
 "$SUDO" apt install libx265-dev libnuma-dev
+fi
 
-pause "sudo apt-get install libvpx-dev"
+if prompt "sudo apt install libvpx-dev"; then
 "$SUDO" apt install libvpx-dev
+fi
 
-pasue -p "sudo apt-get install libfdk-aac-dev"
+if prompt "sudo apt install libfdk-aac-dev"; then
 "$SUDO" apt install libfdk-aac-dev
+fi
 
-pause -p "sudo apt-get install libopus-dev"
+if prompt "sudo apt install libopus-dev"; then
 "$SUDO" apt install libopus-dev
+fi
 
-pause -p "sudo apt install libaom-dev"
+if prompt "sudo apt install libaom-dev"; then
 "$SUDO" apt install libaom-dev
+fi
 
-pause -p "sudo apt install libsvtav1-dev"
+if prompt "sudo apt install libsvtav1-dev"; then
 "$SUDO" apt install libsvtav1-dev libsvtav1enc-dev libsvtav1dec-dev
+fi
 
 #This ultimately wasn't necessary when I installed on Sat Dec  2 12:30:49 PM EST 2023
 #cd "$CACHE/ffmpeg_sources" && \
@@ -82,11 +108,12 @@ pause -p "sudo apt install libsvtav1-dev"
 #PATH="$CACHE/bin:$PATH" make -j4 && \
 #make install
 
-pause -p "sudo apt-get install libdav1d-dev"
+if prompt "sudo apt install libdav1d-dev"; then
 "$SUDO" apt install libdav1d-dev
+fi
 
-pause -p "install libvmaf"
-cd "$CACHE"/ffmpeg_sources && \
+if prompt "install libvmaf from source"; then
+cd "$CACHE"/ffmpeg_sources || exit && \
 wget -c https://github.com/Netflix/vmaf/archive/v2.3.1.tar.gz && \
 tar xvf v2.3.1.tar.gz && \
 mkdir -p vmaf-2.3.1/libvmaf/build bin &&\
@@ -95,11 +122,20 @@ meson setup -Denable_tests=false -Denable_docs=false --buildtype=release --defau
 ninja && \
 ninja install
 mv "$CACHE/ffmpeg_build/bin/"* "$CACHE/bin"
+fi
 
-cd "$CACHE/ffmpeg_sources" && \
+fi
+
+
+if prompt "get ffmpeg sources"; then
+cd "$CACHE/ffmpeg_sources" || exit && \
 wget -c -O ffmpeg-snapshot.tar.bz2 https://ffmpeg.org/releases/ffmpeg-snapshot.tar.bz2 && \
 tar xjvf ffmpeg-snapshot.tar.bz2 && \
-cd ffmpeg && \
+cd ffmpeg
+fi
+
+if prompt "./configure"; then
+cd "$CACHE/ffmpeg_sources/ffmpeg" || exit
 PATH="$CACHE/bin:$PATH" PKG_CONFIG_PATH="$CACHE/ffmpeg_build/lib/pkgconfig" ./configure \
   --bindir="/usr/local/bin" `#set bindir for your system; $HOME/bin was default` \
   --prefix="$CACHE/ffmpeg_build" \
@@ -122,9 +158,19 @@ PATH="$CACHE/bin:$PATH" PKG_CONFIG_PATH="$CACHE/ffmpeg_build/lib/pkgconfig" ./co
   --enable-libvpx \
   --enable-libx264 \
   --enable-libx265 \
-  --enable-nonfree && \
-#PATH="$CACHE/bin:$PATH" make -j4 && \
-sudo make install && \
-hash -r
+  --enable-nonfree
+fi
+
+if prompt "build ffmpeg (make -j4)"; then
+cd "$CACHE/ffmpeg_sources/ffmpeg" || exit
+PATH="$CACHE/bin:$PATH" make -j4
+fi
+
+if prompt "install ffmpeg (sudo make install)"; then
+cd "$CACHE/ffmpeg_sources/ffmpeg" || exit
+sudo make install && hash -r
+fi
+
+
 
 
