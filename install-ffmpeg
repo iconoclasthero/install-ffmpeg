@@ -1,17 +1,15 @@
 #!/bin/bash
+# nb: the swp file that editscript relies on is provided by nano
 _CACHE="/dev/shm/cache"
 
-scriptname=$(realpath "$0")
+editscript(){
+  local scriptname script path swp; scriptname=$(realpath "$0" 2>/dev/null); script="${scriptname##*/}"; path="${scriptname%/*}"; swp="$path/.$script.swp"
+     [[ ! -e "$swp" ]] && printf "\n\n%s\n\n" "$swp" && (/usr/bin/nano "$scriptname") && exit
+     printf "\n%s is already being edited.\n%s exists; try fg or look in another window.\n" "$scriptname" "$swp"; exit ;}
 
-#function editscript(){ if [ "$1" = "edit" ] || [ "$1" = "nano" ]; then (/usr/bin/nano "$scriptname"); exit; fi ; }
-function editscript(){
-  local script path; script="${scriptname##*/}"; path="${scriptname%/*}"; swp="$path/.$script.swp"
-  if [ "$1" = "edit" ] || [ "$1" = "nano" ]; then
-     if [[ ! -e "$swp" ]]; then printf "\n\n%s\n\n" "$swp"; (/usr/bin/nano "$scriptname"); exit
-     else printf "\n%s is already being edited.\n%s exists; try fg or look in another window.\n" "$scriptname" "$swp"; exit; fi;
-  fi; }
+pause(){ read -p "$*" ; }
 
-function pause(){ read -p "$*" ; }
+[[ "$1" == @(edit|e|nano|-e|-E) ]] && editscript
 
 prompt(){
 read -p "$1 " choice
@@ -22,8 +20,6 @@ case "$choice" in
 #  * ) echo "invalid";;
 esac
 }
-
-editscript "$1"
 
 [[ -z "$CACHE" ]] && CACHE="$_CACHE"
 [[ ! -d "$CACHE" ]] && mkdir -p "$CACHE" && chown "$user" "$CACHE"
@@ -129,8 +125,9 @@ fi
 
 if prompt "get ffmpeg sources"; then
 cd "$CACHE/ffmpeg_sources" || exit && \
-wget -c -O ffmpeg-snapshot.tar.bz2 https://ffmpeg.org/releases/ffmpeg-snapshot.tar.bz2 && \
-tar xjvf ffmpeg-snapshot.tar.bz2 && \
+#wget -c -O ffmpeg-snapshot.tar.bz2 https://ffmpeg.org/releases/ffmpeg-snapshot.tar.bz2 && \
+#tar xjvf ffmpeg-snapshot.tar.bz2 && \
+git clone https://git.ffmpeg.org/ffmpeg.git ffmpeg
 cd ffmpeg
 fi
 
@@ -140,6 +137,7 @@ PATH="$CACHE/bin:$PATH" PKG_CONFIG_PATH="$CACHE/ffmpeg_build/lib/pkgconfig" ./co
   --bindir="/usr/local/bin" `#set bindir for your system; $HOME/bin was default` \
   --prefix="$CACHE/ffmpeg_build" \
   --pkg-config-flags="--static" \
+  `# --extra-ldflags="-static"` \
   --extra-cflags="-I$CACHE/ffmpeg_build/include" \
   --extra-ldflags="-L$CACHE/ffmpeg_build/lib" \
   --extra-libs="-lpthread -lm" \
@@ -159,7 +157,8 @@ PATH="$CACHE/bin:$PATH" PKG_CONFIG_PATH="$CACHE/ffmpeg_build/lib/pkgconfig" ./co
   --enable-libx264 \
   --enable-libx265 \
   --enable-nonfree \
-  --enable-libpulse
+  --enable-libpulse\
+  --enable-pthreads
 fi
 
 if prompt "build ffmpeg (make -j4)"; then
