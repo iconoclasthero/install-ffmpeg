@@ -1,15 +1,16 @@
 #!/bin/bash
 # nb: the swp file that editscript relies on is provided by nano
 _CACHE="/dev/shm/cache"
+scriptpath=$(realpath "$0")
+vmaf_ver=3.0.0
 
 editscript(){
-  local scriptname script path swp; scriptname=$(realpath "$0" 2>/dev/null); script="${scriptname##*/}"; path="${scriptname%/*}"; swp="$path/.$script.swp"
-     [[ ! -e "$swp" ]] && printf "\n\n%s\n\n" "$swp" && (/usr/bin/nano "$scriptname") && exit
-     printf "\n%s is already being edited.\n%s exists; try fg or look in another window.\n" "$scriptname" "$swp"; exit ;}
+  local scriptpath script path swp; scriptpath=$(realpath "$0" 2>/dev/null); script="${scriptpath##*/}"; path="${scriptpath%/*}"; swp="$path/.$script.swp"
+     [[ ! -e "$swp" ]] && printf "\n\n%s\n\n" "$swp" && (/usr/bin/nano "$scriptpath") && exit
+     printf "\n%s is already being edited.\n%s exists; try fg or look in another window.\n" "$scriptpath" "$swp"; exit ;}
 
-pause(){ read -p "$*" ; }
+pause(){ read -rp "$*" ; }
 
-[[ "$1" == @(edit|e|nano|-e|-E) ]] && editscript
 
 prompt(){
 read -p "$1 " choice
@@ -21,123 +22,133 @@ case "$choice" in
 esac
 }
 
+[[ "$1" == @(edit|e|-e) ]] && editscript
+for i in ffmpeg_sources ffmpeg_build ffmpeg_bin; do eval "$i"="$CACHE/$i"; done
 [[ -z "$CACHE" ]] && CACHE="$_CACHE"
 [[ ! -d "$CACHE" ]] && mkdir -p "$CACHE" && chown "$user" "$CACHE"
 
-SUDO=''
+for i in "$ffmpeg_sources" "$ffmpeg_build" "$ffmpeg_bin"; do mkdir -p "$i"; [[ ! -d "$i" ]] && { echo "Error creating $i; investigate" ; exit; }; done
+
 if (( "$EUID" != 0 )) 2>/dev/null; then
-    SUDO='sudo'
-else echo "RUN AS ROOT"
+  SUDO='sudo'
+else
+  echo "RUN AS ROOT"
 fi
 
 if prompt "install dependencies?"; then
 
-if prompt "install base dependencies via apt"; then
-"$SUDO" apt -y install \
-  libunistring-dev \
-  autoconf \
-  automake \
-  build-essential \
-  cmake \
-  git-core \
-  libass-dev \
-  libfreetype6-dev \
-  libgnutls28-dev \
-  libmp3lame-dev \
-  libsdl2-dev \
-  libtool \
-  libva-dev \
-  libvdpau-dev \
-  libvorbis-dev \
-  libxcb1-dev \
-  libxcb-shm0-dev \
-  libxcb-xfixes0-dev \
-  meson \
-  ninja-build \
-  pkg-config \
-  texinfo \
-  wget \
-  yasm \
-  zlib1g-dev
+  if prompt "install base dependencies via apt"; then
+  "$SUDO" apt -y install \
+    libunistring-dev \
+    autoconf \
+    automake \
+    build-essential \
+    cmake \
+    git-core \
+    libaom-dev \
+    libass-dev \
+    libdav1d-dev \
+    libfdk-aac-dev \
+    libfreetype6-dev \
+    libgnutls28-dev \
+    libmp3lame-dev \
+    libnuma-dev \
+    libopus-dev \
+    libsdl2-dev \
+    libsvtav1-dev\
+    libsvtav1enc-dev \
+    libsvtav1dec-dev \
+    libtool \
+    libva-dev \
+    libvdpau-dev \
+    libvorbis-dev \
+    libvpx-dev \
+    libvulkan-dev \
+    libvulkan-volk-dev \
+    libx264-dev \
+    libx265-dev \
+    libxcb1-dev \
+    libxcb-shm0-dev \
+    libxcb-xfixes0-dev \
+    meson \
+    nasm \
+    ninja-build \
+    pkg-config \
+    texinfo \
+    wget \
+    yasm \
+    zlib1g-dev
+  fi
+
+
+#  if prompt "sudo apt install libvulkan-dev"; then
+#  "$SUDO" apt install libvulkan-dev libvulkan-volk-dev
+#  fi
+
+  #This ultimately wasn't necessary when I installed on Sat Dec  2 12:30:49 PM EST 2023
+  #cd "$CACHE/ffmpeg_sources" && \
+  #git -C SVT-AV1 pull 2> /dev/null || git clone https://gitlab.com/AOMediaCodec/SVT-AV1.git && \
+  #mkdir -p SVT-AV1/build && \
+  #cd SVT-AV1/build && \
+  #PATH="$CACHE/bin:$PATH" cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX="$CACHE/ffmpeg_build" -DCMAKE_BUILD_TYPE=Release -DBUILD_DEC=OFF -DBUILD_SHARED_LIBS=OFF .. && \
+  #PATH="$CACHE/bin:$PATH" make -j4 && \
+  #make install
+
+  #Thu May 16 08:47:27 AM EDT 2024
+  # On peral harbor day last year vmaf 3 was released...
+
+  #if prompt "download and build libvmaf from source? "; then
+  #cd "$CACHE"/ffmpeg_sources || exit && \
+  #wget -c https://github.com/Netflix/vmaf/archive/v2.3.1.tar.gz && \
+  #tar xvf v2.3.1.tar.gz && \
+  #mkdir -p vmaf-2.3.1/libvmaf/build bin &&\
+  #cd vmaf-2.3.1/libvmaf/build && \
+  #meson setup -Denable_tests=false -Denable_docs=false --buildtype=release --default-library=static .. --prefix "$CACHE/ffmpeg_build" --bindir="$CACHE/ffmpeg_build/bin" --libdir="$CACHE/ffmpeg_build/lib" && \
+  #ninja && \
+  #ninja install
+  #mv "$CACHE/ffmpeg_build/bin/"* "$CACHE/bin"
+  #fi
+
+  [[ -f "$ffmpeg_build/include/libvmaf/libvmaf.h" ]] && install_vmaf=false || install_vmaf=true
+
+  if [[ "$install_vmaf" = true ]]; then
+    prompt "download and build libvmaf from source? " && install_vmaf=true || install_vmaf=false
+  elif [[ "$install_vmaf" = false ]]; then
+    prompt "$ffmpeg_build/include/libvmaf/libvmaf.h exists, download & rebuild from source?" && install_vmaf=true
+  fi
+
+  if [[ "$install_vmaf" ]]; then
+      cd "$ffmpeg_sources" || { echo "Failed to change directory to $ffmpeg_sources; investigate" ; exit; }
+      [[ -z "$vmaf_ver" ]] && vmaf_ver=3.0.0
+      vmaf_wget="v$vmaf_ver.tar.gz"
+      wget -cO "$vmaf_wget" "https://github.com/Netflix/vmaf/archive/$vmaf_wget" &&
+      vmaf_current="$(tar ztf "$vmaf_wget" |head -1)" &&
+      vmaf_current="${vmaf_current%\/}"
+      vmaf_current_file="$vmaf_current.tar.gz" &&
+      tar xfv "$vmaf_wget" &&
+      mkdir -p "$vmaf_current"/libvmaf/build bin &&
+      cd "$vmaf_current"/libvmaf/build &&
+      meson setup -Denable_tests=false -Denable_docs=false --buildtype=release --default-library=static .. --prefix "$ffmpeg_build" --bindir="$ffmpeg_build/bin" --libdir="$ffmpeg_build/lib" &&
+      ninja &&
+      ninja install &&
+      mv "$ffmpeg_build/bin/"* "$ffmpeg_bin" || { echo "$vmaf_current failed to buiild; investigate. exit (1)"; exit 1; }
+  fi
 fi
 
-mkdir -p "$CACHE/ffmpeg_sources" "$CACHE/bin" "$CACHE/ffmpeg_build"
-
-if prompt "sudo apt install nasm"; then
-"$SUDO" apt install nasm
-fi
-
-if prompt "sudo apt install libx264-dev"; then
-"$SUDO" apt install libx264-dev
-fi
-
-if prompt "sudo apt install libx265-dev libnuma-dev"; then
-"$SUDO" apt install libx265-dev libnuma-dev
-fi
-
-if prompt "sudo apt install libvpx-dev"; then
-"$SUDO" apt install libvpx-dev
-fi
-
-if prompt "sudo apt install libfdk-aac-dev"; then
-"$SUDO" apt install libfdk-aac-dev
-fi
-
-if prompt "sudo apt install libopus-dev"; then
-"$SUDO" apt install libopus-dev
-fi
-
-if prompt "sudo apt install libaom-dev"; then
-"$SUDO" apt install libaom-dev
-fi
-
-if prompt "sudo apt install libsvtav1-dev"; then
-"$SUDO" apt install libsvtav1-dev libsvtav1enc-dev libsvtav1dec-dev
-fi
-
-#This ultimately wasn't necessary when I installed on Sat Dec  2 12:30:49 PM EST 2023
-#cd "$CACHE/ffmpeg_sources" && \
-#git -C SVT-AV1 pull 2> /dev/null || git clone https://gitlab.com/AOMediaCodec/SVT-AV1.git && \
-#mkdir -p SVT-AV1/build && \
-#cd SVT-AV1/build && \
-#PATH="$CACHE/bin:$PATH" cmake -G "Unix Makefiles" -DCMAKE_INSTALL_PREFIX="$CACHE/ffmpeg_build" -DCMAKE_BUILD_TYPE=Release -DBUILD_DEC=OFF -DBUILD_SHARED_LIBS=OFF .. && \
-#PATH="$CACHE/bin:$PATH" make -j4 && \
-#make install
-
-if prompt "sudo apt install libdav1d-dev"; then
-"$SUDO" apt install libdav1d-dev
-fi
-
-if prompt "install libvmaf from source"; then
-cd "$CACHE"/ffmpeg_sources || exit && \
-wget -c https://github.com/Netflix/vmaf/archive/v2.3.1.tar.gz && \
-tar xvf v2.3.1.tar.gz && \
-mkdir -p vmaf-2.3.1/libvmaf/build bin &&\
-cd vmaf-2.3.1/libvmaf/build && \
-meson setup -Denable_tests=false -Denable_docs=false --buildtype=release --default-library=static .. --prefix "$CACHE/ffmpeg_build" --bindir="$CACHE/ffmpeg_build/bin" --libdir="$CACHE/ffmpeg_build/lib" && \
-ninja && \
-ninja install
-mv "$CACHE/ffmpeg_build/bin/"* "$CACHE/bin"
-fi
-
-fi
-
-
-if prompt "get ffmpeg sources"; then
+if prompt "get ffmpeg sources? "; then
+mkdir -p "$CACHE/ffmpeg_sources"
 cd "$CACHE/ffmpeg_sources" || exit && \
-#wget -c -O ffmpeg-snapshot.tar.bz2 https://ffmpeg.org/releases/ffmpeg-snapshot.tar.bz2 && \
-#tar xjvf ffmpeg-snapshot.tar.bz2 && \
-git clone https://git.ffmpeg.org/ffmpeg.git ffmpeg
+wget -c -O ffmpeg-snapshot.tar.bz2 https://ffmpeg.org/releases/ffmpeg-snapshot.tar.bz2 && \
+tar xjvf ffmpeg-snapshot.tar.bz2 && \
 cd ffmpeg
 fi
 
-if prompt "./configure"; then
-cd "$CACHE/ffmpeg_sources/ffmpeg" || exit
-PATH="$CACHE/bin:$PATH" PKG_CONFIG_PATH="$CACHE/ffmpeg_build/lib/pkgconfig" ./configure \
+if prompt "./configure? "; then
+cd "$ffmpeg_sources/ffmpeg" || exit
+PATH="$ffmpeg_bin:$PATH" PKG_CONFIG_PATH="$ffmpeg_build/lib/pkgconfig" ./configure \
   --bindir="/usr/local/bin" `#set bindir for your system; $HOME/bin was default` \
-  --prefix="$CACHE/ffmpeg_build" \
+  --prefix="$ffmpeg_build" \
   --pkg-config-flags="--static" \
-  `# --extra-ldflags="-static"` \
   --extra-cflags="-I$CACHE/ffmpeg_build/include" \
   --extra-ldflags="-L$CACHE/ffmpeg_build/lib" \
   --extra-libs="-lpthread -lm" \
@@ -157,17 +168,17 @@ PATH="$CACHE/bin:$PATH" PKG_CONFIG_PATH="$CACHE/ffmpeg_build/lib/pkgconfig" ./co
   --enable-libx264 \
   --enable-libx265 \
   --enable-nonfree \
-  --enable-libpulse\
-  --enable-pthreads
+  --enable-libpulse \
+  `#--enable-vulkan disabled`
 fi
 
 if prompt "build ffmpeg (make -j4)"; then
-cd "$CACHE/ffmpeg_sources/ffmpeg" || exit
-PATH="$CACHE/bin:$PATH" make -j4
+cd "$ffmpeg_sources/ffmpeg" || exit
+PATH="$ffmpeg_bin:$PATH" make -j4
 fi
 
 if prompt "install ffmpeg (sudo make install)"; then
-cd "$CACHE/ffmpeg_sources/ffmpeg" || exit
+cd "$ffmpeg_sources/ffmpeg" || exit
 sudo make install && hash -r
 fi
 
