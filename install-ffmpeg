@@ -1,6 +1,6 @@
 #!/bin/bash
 # nb: the swp file that editscript relies on is provided by nano
-_CACHE="/dev/shm/cache"
+_CACHE="/dev/shm/cache/gigabyte"
 scriptpath=$(realpath "$0")
 vmaf_ver=3.0.0
 
