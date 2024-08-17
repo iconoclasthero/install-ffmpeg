@@ -39,6 +39,7 @@ if prompt "install dependencies?"; then
 
   if prompt "install base dependencies via apt"; then
   "$SUDO" apt -y install \
+    libzmq3-dev
     libunistring-dev \
     autoconf \
     automake \
@@ -169,7 +170,13 @@ PATH="$ffmpeg_bin:$PATH" PKG_CONFIG_PATH="$ffmpeg_build/lib/pkgconfig" ./configu
   --enable-libx265 \
   --enable-nonfree \
   --enable-libpulse \
-  `#--enable-vulkan disabled`
+  `#--enable-libzmq \ `
+   `#--enable-vulkan disabled`
+  ec="$?"
+  if (( "$?" != 0 )); then
+    echo "configure failed to set up the make file. (exit 1)"
+    exit
+  fi
 fi
 
 if prompt "build ffmpeg (make -j4)"; then
