@@ -1,6 +1,6 @@
 #!/bin/bash
 # nb: the swp file that editscript relies on is provided by nano
-_CACHE="/dev/shm/cache/gigabyte"
+_CACHE="/dev/shm/cache"
 scriptpath=$(realpath "$0")
 vmaf_ver=3.0.0
 
@@ -23,9 +23,11 @@ esac
 }
 
 [[ "$1" == @(edit|e|-e) ]] && editscript
-for i in ffmpeg_sources ffmpeg_build ffmpeg_bin; do eval "$i"="$CACHE/$i"; done
-[[ -z "$CACHE" ]] && CACHE="$_CACHE"
-[[ ! -d "$CACHE" ]] && mkdir -p "$CACHE" && chown "$user" "$CACHE"
+for i in ffmpeg_sources ffmpeg_build ffmpeg_bin; do eval "$i"="$_CACHE/$i"; done
+#[[ -z "$CACHE" ]] && CACHE="$_CACHE"
+#[[ ! -d "$CACHE" ]] && mkdir -p "$CACHE" && chown "$user" "$CACHE"
+
+CACHE="$_CACHE"
 
 for i in "$ffmpeg_sources" "$ffmpeg_build" "$ffmpeg_bin"; do mkdir -p "$i"; [[ ! -d "$i" ]] && { echo "Error creating $i; investigate" ; exit; }; done
 
@@ -136,8 +138,8 @@ if prompt "install dependencies?"; then
 fi
 
 if prompt "get ffmpeg sources? "; then
-mkdir -p "$CACHE/ffmpeg_sources"
-cd "$CACHE/ffmpeg_sources" || exit && \
+mkdir -p "$ffmpeg_sources"
+cd "$ffmpeg_sources" || exit && \
 wget -c -O ffmpeg-snapshot.tar.bz2 https://ffmpeg.org/releases/ffmpeg-snapshot.tar.bz2 && \
 tar xjvf ffmpeg-snapshot.tar.bz2 && \
 cd ffmpeg
