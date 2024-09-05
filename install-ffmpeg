@@ -41,7 +41,9 @@ if prompt "install dependencies?"; then
 
   if prompt "install base dependencies via apt"; then
   "$SUDO" apt -y install \
-    libzmq3-dev
+    gnutls-bin \
+    nasm \
+    libzmq3-dev \
     libunistring-dev \
     autoconf \
     automake \
@@ -172,7 +174,7 @@ PATH="$ffmpeg_bin:$PATH" PKG_CONFIG_PATH="$ffmpeg_build/lib/pkgconfig" ./configu
   --enable-libx265 \
   --enable-nonfree \
   --enable-libpulse \
-  `#--enable-libzmq \ `
+  --enable-libzmq \
    `#--enable-vulkan disabled`
   ec="$?"
   if (( "$?" != 0 )); then
