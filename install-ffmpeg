@@ -4,6 +4,7 @@ _CACHE="/dev/shm/cache"
 scriptpath=$(realpath "$0")
 vmaf_ver=3.0.0
 
+
 editscript(){
   local scriptpath script path swp; scriptpath=$(realpath "$0" 2>/dev/null); script="${scriptpath##*/}"; path="${scriptpath%/*}"; swp="$path/.$script.swp"
      [[ ! -e "$swp" ]] && printf "\n\n%s\n\n" "$swp" && (/usr/bin/nano "$scriptpath") && exit
@@ -41,49 +42,48 @@ if prompt "install dependencies?"; then
 
   if prompt "install base dependencies via apt"; then
   "$SUDO" apt -y install \
-    gnutls-bin \
-    nasm \
-    libzmq3-dev \
-    libunistring-dev \
     autoconf \
     automake \
     build-essential \
     cmake \
     git-core \
-    libaom-dev \
     libass-dev \
-    libdav1d-dev \
-    libfdk-aac-dev \
     libfreetype6-dev \
     libgnutls28-dev \
     libmp3lame-dev \
-    libnuma-dev \
-    libopus-dev \
     libsdl2-dev \
-    libsvtav1-dev\
-    libsvtav1enc-dev \
-    libsvtav1dec-dev \
     libtool \
     libva-dev \
     libvdpau-dev \
     libvorbis-dev \
-    libvpx-dev \
-    libvulkan-dev \
-    libvulkan-volk-dev \
-    libx264-dev \
-    libx265-dev \
     libxcb1-dev \
     libxcb-shm0-dev \
     libxcb-xfixes0-dev \
     meson \
-    nasm \
     ninja-build \
     pkg-config \
     texinfo \
     wget \
     yasm \
-    zlib1g-dev
+    zlib1g-dev \
+    gnutls-bin \
+    nasm \
+    libx264-dev \
+    libx265-dev \
+    libvpx-dev \
+    libfdk-aac-dev \
+    libopus-dev \
+    libaom-dev \
+    libdav1d-dev \
+    libzmq3-dev \
+    libunistring-dev \
+    libnuma-dev \
+    libsvtav1enc-dev \
+    libvulkan-dev \
+    libvulkan-volk-dev
   fi
+#removed     libsvtav1dec-dev \
+#removed     libsvtav1-dev\
 
 
 #  if prompt "sudo apt install libvulkan-dev"; then
@@ -123,7 +123,7 @@ if prompt "install dependencies?"; then
   fi
 
   if [[ "$install_vmaf" ]]; then
-      cd "$ffmpeg_sources" || { echo "Failed to change directory to $ffmpeg_sources; investigate" ; exit; }
+      cd "$ffmpeg_sources" || { echo "Failed to change directory to $ffmpeg_sources; investigate. (exit 1)" ; exit 1 ; }
       [[ -z "$vmaf_ver" ]] && vmaf_ver=3.0.0
       vmaf_wget="v$vmaf_ver.tar.gz"
       wget -cO "$vmaf_wget" "https://github.com/Netflix/vmaf/archive/$vmaf_wget" &&
@@ -138,6 +138,20 @@ if prompt "install dependencies?"; then
       ninja install &&
       mv "$ffmpeg_build/bin/"* "$ffmpeg_bin" || { echo "$vmaf_current failed to buiild; investigate. exit (1)"; exit 1; }
   fi
+
+
+#  if ! command -v exhale >/dev/null && prompt "Download and build ecodis exhale for xHE-AAC?"; then
+#    exhale_build="$ffmpeg_sources/exhale-build"
+#    mkdir -p "$exhale_build" || { printf 'Failed to create exale build directory (%s); investigate. (exit 1)\n' "$exhale_build"; exit 1; }
+#    cd "$exhale_build" || { printf 'Failed to change directory to %s; investigate. (exit 1)\n' "$exhale_buils"; exit 1; }
+#    wget https://gitlab.com/ecodis/exhale/-/archive/v1.2.2RC/exhale-v1.2.2RC.tar.gz
+#    tar xvf exhale-v1.2.2RC.tar.gz && cd exhale-v1.2.2
+#    make BUILD32=0 release
+#    sudo cp -v bin/exhale /usr/local/bin
+#  fi
+
+
+
 fi
 
 if prompt "get ffmpeg sources? "; then
@@ -175,7 +189,24 @@ PATH="$ffmpeg_bin:$PATH" PKG_CONFIG_PATH="$ffmpeg_build/lib/pkgconfig" ./configu
   --enable-nonfree \
   --enable-libpulse \
   --enable-libzmq \
-   `#--enable-vulkan disabled`
+  --enable-librtmp \
+  --enable-libsrt \
+  --enable-libssh \
+  --enable-librabbitmq \
+`#  --enable-libbluray` \
+`#  --enable-libdvdnav` \
+`#  --enable-libdvdread` \
+`#  --enable-libcdio` \
+  --enable-libbs2b \
+  --enable-libvmaf \
+  --enable-libzimg \
+  --enable-libsoxr \
+`# for the latitude laptop add:` \
+  --enable-vulkan \
+  --enable-vaapi \
+  --enable-libvpl \
+  --enable-libdrm
+
   ec="$?"
   if (( "$?" != 0 )); then
     echo "configure failed to set up the make file. (exit 1)"
