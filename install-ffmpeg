@@ -176,7 +176,7 @@ PATH="$ffmpeg_bin:$PATH" PKG_CONFIG_PATH="$ffmpeg_build/lib/pkgconfig" ./configu
   --enable-gnutls \
   --enable-libaom \
   --enable-libass \
-  --enable-libfdk-aac \
+`#  --enable-libfdk-aac` \
   --enable-libfreetype \
   --enable-libmp3lame \
   --enable-libopus \
@@ -200,12 +200,27 @@ PATH="$ffmpeg_bin:$PATH" PKG_CONFIG_PATH="$ffmpeg_build/lib/pkgconfig" ./configu
   --enable-libbs2b \
   --enable-libvmaf \
   --enable-libzimg \
+  --enable-libwebp \
   --enable-libsoxr \
 `# for the latitude laptop add:` \
   --enable-vulkan \
   --enable-vaapi \
   --enable-libvpl \
-  --enable-libdrm
+  --enable-libdrm \
+  --enable-decoder=ape \
+  --enable-demuxer=ape \
+  --enable-decoder=shorten \
+  --enable-demuxer=shorten \
+`# for xHE-AAC support:` \
+  --enable-libfdk_aac \
+  --enable-decoder=libfdk_aac \
+  --enable-encoder=libfdk_aac \
+  --disable-encoder=aac \
+  --disable-encoder=aac_mf \
+  --disable-decoder=aac \
+  --disable-decoder=aac_fixed \
+  --disable-decoder=aac_latm
+
 
   ec="$?"
   if (( "$?" != 0 )); then
