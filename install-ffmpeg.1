@@ -1,17 +1,11 @@
 #!/bin/bash
-# nb: the swp file that editscript relies on is provided by nano
-_CACHE="/dev/shm/cache"
-scriptpath=$(realpath "$0")
-vmaf_ver=3.0.0
 
+. /usr/local/bin/editscript
 
-editscript(){
-  local scriptpath script path swp; scriptpath=$(realpath "$0" 2>/dev/null); script="${scriptpath##*/}"; path="${scriptpath%/*}"; swp="$path/.$script.swp"
-     [[ ! -e "$swp" ]] && printf "\n\n%s\n\n" "$swp" && (/usr/bin/nano "$scriptpath") && exit
-     printf "\n%s is already being edited.\n%s exists; try fg or look in another window.\n" "$scriptpath" "$swp"; exit ;}
-
-pause(){ read -rp "$*" ; }
-
+_CACHE="/dev/shm/cache/gigabyte"
+#vmaf_ver=3.0.0
+#vmafver="$(curl -s https://api.github.com/repos/Netflix/vmaf/releases/latest | grep '"tag_name":' | cut -d '"' -f 4)"
+vmafver=$(curl -s https://api.github.com/repos/Netflix/vmaf/releases/latest | jq -r '.tag_name' || echo v3.0.0)
 
 prompt(){
 read -p "$1 " choice
@@ -23,12 +17,9 @@ case "$choice" in
 esac
 }
 
-[[ "$1" == @(edit|e|-e) ]] && editscript
-for i in ffmpeg_sources ffmpeg_build ffmpeg_bin; do eval "$i"="$_CACHE/$i"; done
-#[[ -z "$CACHE" ]] && CACHE="$_CACHE"
-#[[ ! -d "$CACHE" ]] && mkdir -p "$CACHE" && chown "$user" "$CACHE"
-
-CACHE="$_CACHE"
+for i in ffmpeg_sources ffmpeg_build ffmpeg_bin; do eval "$i"="$CACHE/$i"; done
+[[ -z "$CACHE" ]] && CACHE="$_CACHE"
+[[ ! -d "$CACHE" ]] && mkdir -p "$CACHE" && chown "$user" "$CACHE"
 
 for i in "$ffmpeg_sources" "$ffmpeg_build" "$ffmpeg_bin"; do mkdir -p "$i"; [[ ! -d "$i" ]] && { echo "Error creating $i; investigate" ; exit; }; done
 
@@ -41,50 +32,51 @@ fi
 if prompt "install dependencies?"; then
 
   if prompt "install base dependencies via apt"; then
-  "$SUDO" apt -y install \
-    autoconf \
-    automake \
-    build-essential \
-    cmake \
-    git-core \
-    libass-dev \
-    libfreetype6-dev \
-    libgnutls28-dev \
-    libmp3lame-dev \
-    libsdl2-dev \
-    libtool \
-    libva-dev \
-    libvdpau-dev \
-    libvorbis-dev \
-    libxcb1-dev \
-    libxcb-shm0-dev \
-    libxcb-xfixes0-dev \
-    meson \
-    ninja-build \
-    pkg-config \
-    texinfo \
-    wget \
-    yasm \
-    zlib1g-dev \
-    gnutls-bin \
-    nasm \
-    libx264-dev \
-    libx265-dev \
-    libvpx-dev \
-    libfdk-aac-dev \
-    libopus-dev \
-    libaom-dev \
-    libdav1d-dev \
-    libzmq3-dev \
-    libunistring-dev \
-    libnuma-dev \
-    libsvtav1enc-dev \
-    libvulkan-dev \
+  pkgs=(gnutls-bin
+    nasm
+    libzmq3-dev
+    libunistring-dev
+    autoconf
+    automake
+    build-essential
+    cmake
+    git-core
+    libaom-dev
+    libass-dev
+    libdav1d-dev
+    libfdk-aac-dev
+    libfreetype6-dev
+    libgnutls28-dev
+    libmp3lame-dev
+    libnuma-dev
+    libopus-dev
+    libsdl2-dev
+    libsvtav1-dev
+#    libsvtav1enc-dev
+#    libsvtav1dec-dev
+    libtool
+    libva-dev
+    libvdpau-dev
+    libvorbis-dev
+    libvpx-dev
+    libvulkan-dev
     libvulkan-volk-dev
+    libx264-dev
+    libx265-dev
+    libxcb1-dev
+    libxcb-shm0-dev
+    libxcb-xfixes0-dev
+    meson
+    nasm
+    ninja-build
+    pkg-config
+    texinfo
+    wget
+    yasm
+    zlib1g-dev
+)
+  "$SUDO" apt -y install "${pkgs[@]}"
   fi
-#removed     libsvtav1dec-dev \
-#removed     libsvtav1-dev\
-
 
 #  if prompt "sudo apt install libvulkan-dev"; then
 #  "$SUDO" apt install libvulkan-dev libvulkan-volk-dev
@@ -123,9 +115,8 @@ if prompt "install dependencies?"; then
   fi
 
   if [[ "$install_vmaf" ]]; then
-      cd "$ffmpeg_sources" || { echo "Failed to change directory to $ffmpeg_sources; investigate. (exit 1)" ; exit 1 ; }
-      [[ -z "$vmaf_ver" ]] && vmaf_ver=3.0.0
-      vmaf_wget="v$vmaf_ver.tar.gz"
+      cd "$ffmpeg_sources" || { echo "Failed to change directory to $ffmpeg_sources; investigate" ; exit; }
+      vmaf_wget="${vmafver}.tar.gz"
       wget -cO "$vmaf_wget" "https://github.com/Netflix/vmaf/archive/$vmaf_wget" &&
       vmaf_current="$(tar ztf "$vmaf_wget" |head -1)" &&
       vmaf_current="${vmaf_current%\/}"
@@ -138,25 +129,11 @@ if prompt "install dependencies?"; then
       ninja install &&
       mv "$ffmpeg_build/bin/"* "$ffmpeg_bin" || { echo "$vmaf_current failed to buiild; investigate. exit (1)"; exit 1; }
   fi
-
-
-#  if ! command -v exhale >/dev/null && prompt "Download and build ecodis exhale for xHE-AAC?"; then
-#    exhale_build="$ffmpeg_sources/exhale-build"
-#    mkdir -p "$exhale_build" || { printf 'Failed to create exale build directory (%s); investigate. (exit 1)\n' "$exhale_build"; exit 1; }
-#    cd "$exhale_build" || { printf 'Failed to change directory to %s; investigate. (exit 1)\n' "$exhale_buils"; exit 1; }
-#    wget https://gitlab.com/ecodis/exhale/-/archive/v1.2.2RC/exhale-v1.2.2RC.tar.gz
-#    tar xvf exhale-v1.2.2RC.tar.gz && cd exhale-v1.2.2
-#    make BUILD32=0 release
-#    sudo cp -v bin/exhale /usr/local/bin
-#  fi
-
-
-
 fi
 
 if prompt "get ffmpeg sources? "; then
-mkdir -p "$ffmpeg_sources"
-cd "$ffmpeg_sources" || exit && \
+mkdir -p "$CACHE/ffmpeg_sources"
+cd "$CACHE/ffmpeg_sources" || exit && \
 wget -c -O ffmpeg-snapshot.tar.bz2 https://ffmpeg.org/releases/ffmpeg-snapshot.tar.bz2 && \
 tar xjvf ffmpeg-snapshot.tar.bz2 && \
 cd ffmpeg
@@ -164,50 +141,94 @@ fi
 
 if prompt "./configure? "; then
 cd "$ffmpeg_sources/ffmpeg" || exit
-PATH="$ffmpeg_bin:$PATH" PKG_CONFIG_PATH="$ffmpeg_build/lib/pkgconfig" ./configure \
-  --bindir="/usr/local/bin" `#set bindir for your system; $HOME/bin was default` \
-  --prefix="$ffmpeg_build" \
-  --pkg-config-flags="--static" \
-  --extra-cflags="-I$CACHE/ffmpeg_build/include" \
-  --extra-ldflags="-L$CACHE/ffmpeg_build/lib" \
-  --extra-libs="-lpthread -lm" \
-  --ld="g++" \
-  --enable-gpl \
-  --enable-gnutls \
-  --enable-libaom \
-  --enable-libass \
-  --enable-libfdk-aac \
-  --enable-libfreetype \
-  --enable-libmp3lame \
-  --enable-libopus \
-  --enable-libsvtav1 \
-  --enable-libdav1d \
-  --enable-libvorbis \
-  --enable-libvpx \
-  --enable-libx264 \
-  --enable-libx265 \
-  --enable-nonfree \
-  --enable-libpulse \
-  --enable-libzmq \
-  --enable-librtmp \
-  --enable-libsrt \
-  --enable-libssh \
-  --enable-librabbitmq \
-`#  --enable-libbluray` \
-`#  --enable-libdvdnav` \
-`#  --enable-libdvdread` \
-`#  --enable-libcdio` \
-  --enable-libbs2b \
-  --enable-libvmaf \
-  --enable-libzimg \
-  --enable-libwebp \
-  --enable-libsoxr \
-`# for the latitude laptop add:` \
-  --enable-vulkan \
-  --enable-vaapi \
-  --enable-libvpl \
+PATH="$ffmpeg_bin:$PATH" PKG_CONFIG_PATH="$ffmpeg_build/lib/pkgconfig" ./configure
+configargs=(
+  --bindir="/usr/local/bin" #set bindir for your system; $HOME/bin was default
+  --prefix="$ffmpeg_build"
+  --pkg-config-flags="--static"
+  --extra-cflags="-I$CACHE/ffmpeg_build/include"
+  --extra-ldflags="-L$CACHE/ffmpeg_build/lib"
+  --extra-libs="-lpthread -lm"
+  --ld="g++"
+  --enable-gpl
+  --enable-gnutls
+  --enable-libaom
+  --enable-libass
+  --enable-libfdk-aac
+  --enable-libfreetype
+  --enable-libmp3lame
+  --enable-libopus
+  --enable-libsvtav1
+  --enable-libdav1d
+  --enable-libvorbis
+  --enable-libvpx
+  --enable-libx264
+  --enable-libx265
+  --enable-nonfree
+  --enable-libpulse
+  --enable-libzmq
+  --enable-libbs2b
+  --enable-libcdio
+  --enable-libcodec2
+  --enable-libdav1d
+  --enable-libflite
+  --enable-libfontconfig
+  --enable-libfribidi
+  --enable-libglslang
+  --enable-libgme
+  --enable-libgsm
+  --enable-libharfbuzz
+  --enable-libmp3lame
+  --enable-libmysofa
+  --enable-libopenjpeg
+  --enable-libopenmpt
+  --enable-librubberband
+  --enable-libshine
+  --enable-libsnappy
+  --enable-libsoxr
+  --enable-libspeex
+  --enable-libtheora
+  --enable-libtwolame
+  --enable-libvidstab
+  --enable-libvorbis
+  --enable-libvpx
+  --enable-libwebp
+  --enable-libxml2
+  --enable-libxvid
+  --enable-libzimg
+  --enable-openal
+  --enable-opencl
+  --enable-opengl
+  --disable-sndio
+  --enable-libvpl
+  --enable-libdc1394
   --enable-libdrm
-
+  --enable-libiec61883
+  --enable-chromaprint
+  --enable-frei0r
+  --enable-ladspa
+  --enable-libbluray
+  --enable-libcaca
+  --enable-libdvdnav
+  --enable-libdvdrea
+  --enable-libjack
+  --enable-librabbitmq
+  --enable-librist
+  --enable-libsrt
+  --enable-libssh
+  --enable-libsvtav1
+  --enable-libx264
+  --enable-libzvbi
+  --enable-lv2
+  --enable-sdl2
+  --enable-libplacebo
+  --enable-librav1e
+  --enable-pocketsphinx
+  --enable-librsvg
+  --enable-libjxl
+  --enable-shared
+ #--enable-vulkan disabled
+)
   ec="$?"
   if (( "$?" != 0 )); then
     echo "configure failed to set up the make file. (exit 1)"
