@@ -239,6 +239,15 @@ cd "$ffmpeg_sources/ffmpeg" || exit
 sudo make install && hash -r
 fi
 
+if prompt "give $USER ownership/write permissions on $ffmpeg_sources $ffmpeg_build and $ffmpeg_bin?"; then
+  for i in "$ffmpeg_sources" "$ffmpeg_build" "$ffmpeg_bin"; do chown $USER:$USER -R "$i"; chmod u+rw -R "$i"; done
+fi
+
+if prompt "remove (rmr with prompt) $ffmpeg_sources $ffmpeg_build and $ffmpeg_bin?"; then
+  for i in "$ffmpeg_sources" "$ffmpeg_build" "$ffmpeg_bin"; do rmr "$i"; done
+fi
+
+
 
 
 
