@@ -114,15 +114,15 @@ if prompt "install dependencies?"; then
   #mv "$CACHE/ffmpeg_build/bin/"* "$CACHE/bin"
   #fi
 
-  [[ -f "$ffmpeg_build/include/libvmaf/libvmaf.h" ]] && install_vmaf=false || install_vmaf=true
+  [[ -f "$ffmpeg_build/include/libvmaf/libvmaf.h" ]] && install_vmaf=1
 
-  if [[ "$install_vmaf" = true ]]; then
-    prompt "download and build libvmaf from source? " && install_vmaf=true || install_vmaf=false
+  if (( install_vmaf )); then
+    prompt "download and build libvmaf from source? " && install_vmaf=1 || install_vmaf=0
   elif [[ "$install_vmaf" = false ]]; then
-    prompt "$ffmpeg_build/include/libvmaf/libvmaf.h exists, download & rebuild from source?" && install_vmaf=true
+    prompt "$ffmpeg_build/include/libvmaf/libvmaf.h exists, download & rebuild from source?" && install_vmaf=1
   fi
 
-  if [[ "$install_vmaf" ]]; then
+  if (( install_vmaf )); then
       cd "$ffmpeg_sources" || { echo "Failed to change directory to $ffmpeg_sources; investigate. (exit 1)" ; exit 1 ; }
       [[ -z "$vmaf_ver" ]] && vmaf_ver=3.0.0
       vmaf_wget="v$vmaf_ver.tar.gz"
